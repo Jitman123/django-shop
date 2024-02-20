@@ -4,6 +4,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect
 from django.urls import reverse
 
+from carts.models import Cart
 from user.forms import UserLoginForm, UserRegistrationForm, ProfileForm
 
 
@@ -17,9 +18,16 @@ def login(request):
             username = request.POST['username']
             password = request.POST['password']
             user = auth.authenticate(username=username, password=password)
+
+            sessions_key = request.session.session_key
+
             if user:
                 auth.login(request, user)
                 messages.success(request, f"{username}, Вы вошли в аккаунт")
+
+                if sessions_key:
+                    Cart.objects.filter(sessions_key=sessions_key).update(user=user)
+
                 redirect_page = request.POST.get('next')
                 if redirect_page and redirect_page != reverse('user:logout'):
                     return HttpResponseRedirect(redirect_page)
@@ -42,6 +50,11 @@ def registration(request):
             form.save()
             user = form.instance
             auth.login(request, user)
+
+            sessions_key = request.session.session_key
+            if sessions_key:
+                Cart.objects.filter(sessions_key=sessions_key).update(user=user)
+
             messages.success(request, f"{user.username}, Вы успешно зарегистрировались")
             if request.POST.get('next'):
                 return HttpResponseRedirect(request.POST['next'])
